@@ -152,6 +152,17 @@ async fn status(state: State<'_, AppState>) -> Result<String, String> {
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn ping_configs(
+    binary: Option<String>,
+    targets: Vec<split_tunnel_backend::ping::PingTarget>,
+) -> Result<Vec<split_tunnel_backend::ping::PingResult>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        split_tunnel_backend::ping::ping_configs(binary.as_deref(), targets)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 async fn fetch_subscription(url: String) -> Result<String, String> {
     const LIMIT: usize = 2 * 1024 * 1024;
     let parsed = reqwest::Url::parse(&url).map_err(|_| "Invalid subscription URL")?;
@@ -352,6 +363,7 @@ fn main() {
             connect,
             disconnect,
             status,
+            ping_configs,
             running_apps,
             installed_apps,
             fetch_subscription,
