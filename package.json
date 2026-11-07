@@ -1,0 +1,50 @@
+{
+  "name": "split-tunnel-v2ray",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check:config": "vite-node scripts/check-config.ts",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "tauri": "node scripts/tauri.mjs",
+    "setup:engine": "node scripts/setup-engine.mjs",
+    "lint": "eslint src tests scripts --max-warnings 0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/node": "^20.17.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "eslint": "^10.14.0",
+    "jsdom": "26.1.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.6",
+    "vite-node": "2.1.9",
+    "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "description": "Desktop process-based split tunneling using sing-box and Tauri.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MohamadrezaKazemian/split-tunnel-v2ray.git"
+  },
+  "homepage": "https://github.com/MohamadrezaKazemian/split-tunnel-v2ray#readme",
+  "keywords": [
+    "tauri",
+    "split-tunneling",
+    "sing-box",
+    "proxy"
+  ],
+  "author": "Mohkeys"
+}

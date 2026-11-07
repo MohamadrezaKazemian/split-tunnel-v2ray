@@ -1,0 +1,35 @@
+[package]
+name = "split-tunnel-backend"
+version = "0.1.0"
+edition = "2021"
+description = "Desktop process-based split tunneling using sing-box and Tauri"
+license = "MIT"
+repository = "https://github.com/MohamadrezaKazemian/split-tunnel-v2ray"
+homepage = "https://github.com/MohamadrezaKazemian/split-tunnel-v2ray"
+keywords = ["tauri", "split-tunneling", "sing-box", "proxy"]
+authors = ["Mohkeys"]
+
+[lib]
+name = "split_tunnel_backend"
+path = "src/lib.rs"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sysinfo = "0.33"
+shell-words = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }

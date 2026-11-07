@@ -1,0 +1,70 @@
+name: Draft release
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bundles: deb,appimage
+          - os: windows-latest
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.18.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm setup:engine
+      - run: pnpm tauri build --bundles ${{ matrix.bundles }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ runner.os }}
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Gather assets and checksums
+        shell: bash
+        run: |
+          mkdir release-files
+          find release-assets -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' \) -exec cp -t release-files {} +
+          test "$(find release-files -name '*.deb' | wc -l)" -gt 0
+          test "$(find release-files -name '*.AppImage' | wc -l)" -gt 0
+          test "$(find release-files -name '*.exe' | wc -l)" -gt 0
+          cp LICENSE THIRD_PARTY_NOTICES.md release-files/
+          curl --fail --location --retry 3 https://raw.githubusercontent.com/SagerNet/sing-box/v1.14.4/LICENSE -o release-files/sing-box-LICENSE.txt
+          curl --fail --location --retry 3 https://www.gnu.org/licenses/gpl-3.0.txt -o release-files/GPL-3.0.txt
+          cd release-files
+          sha256sum * > SHA256SUMS.txt
+      - name: Create prerelease draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release-files/* --draft --prerelease --title "$GITHUB_REF_NAME" --notes 'Experimental release. Windows has not been validated on a real machine. Review third-party licensing and corresponding source obligations before publishing.'
