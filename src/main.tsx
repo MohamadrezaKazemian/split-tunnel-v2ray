@@ -4,14 +4,14 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { parseLink, parseSubscription, type Profile } from './core/links';
-import { generateConfig, type SelectedApp } from './core/config';
+import { generateConfig, type SelectedApp, type TunnelMode } from './core/config';
 import { appRule, pathRule, migrateRule, matchesRule, ruleRegex, isSystemProcess, type RunningApp } from './core/processes';
 import { RunningAppsPicker } from './RunningAppsPicker';
 import { InstalledAppsPicker, type InstalledApp } from './InstalledAppsPicker';
 import { pingRank, pingText, pingTone, type PingMeasurement, type PingResult } from './core/ping';
 import './style.css';
 
-type Data = { profiles: Profile[]; active: number; apps: SelectedApp[]; binary: string; mode: 'inclusive'|'exclusive'; level: 'trace'|'debug'|'info'|'warn'|'error'|'fatal'|'panic' };
+type Data = { profiles: Profile[]; active: number; apps: SelectedApp[]; binary: string; mode: TunnelMode; level: 'trace'|'debug'|'info'|'warn'|'error'|'fatal'|'panic' };
 type Event = {status:string; logs:string[]};
 const initial: Data = { profiles: [], active: 0, apps: [], binary: '', mode:'inclusive', level:'info' };
 function App() {
@@ -86,12 +86,12 @@ function App() {
       {data.profiles.length > 0 && <ul className="config-list">{data.profiles.map((profile,index) => <li className={index === data.active ? 'active' : ''} key={`${profile.name}-${index}`}><button className="config-select" onClick={() => update({active:index})}>{profile.name}<small>{profile.outbound.type}</small></button><span className={'ping '+pingTone(pings[index]?.real)} title={`TCP: ${pingText(pings[index]?.tcp)} · Real delay: ${pingText(pings[index]?.real)}`}>{pinging.has(index) ? 'Testing…' : pingText(pings[index]?.real)}</span><button className="text" onClick={() => void runPing([{profile,index}])} disabled={pinging.has(index)}>Ping</button></li>)}</ul>}
       {pingProgress && <div className="ping-progress" role="status">Testing {pingProgress.done}/{pingProgress.total} configurations… <button className="text" onClick={cancelPing}>Cancel</button></div>}
       <div className="row"><input value={link} onChange={e=>setLink(e.target.value)} placeholder="Paste a proxy link or subscription URL"/><button onClick={addLink}>Add</button></div></section>
-    <section><div className="section-title"><div><h2>Applications</h2><p>{data.mode === 'inclusive' ? 'Only these apps use the proxy.' : 'These apps bypass the proxy.'}</p></div><div className="row"><button onClick={showProcesses}>Running apps</button><button onClick={showInstalled} disabled={loadingInstalled}>{loadingInstalled ? 'Loading…' : 'Installed apps'}</button><button onClick={browse}>Browse</button></div></div>
+    {data.mode === 'whole' ? <section><div className="section-title"><div><h2>Whole-system tunnel</h2><p>All non-local traffic and DNS use the proxy. The proxy endpoint, this app, and the engine stay direct to avoid routing loops.</p></div></div></section> : <section><div className="section-title"><div><h2>Applications</h2><p>{data.mode === 'inclusive' ? 'Only these apps use the proxy.' : 'These apps bypass the proxy.'}</p></div><div className="row"><button onClick={showProcesses}>Running apps</button><button onClick={showInstalled} disabled={loadingInstalled}>{loadingInstalled ? 'Loading…' : 'Installed apps'}</button><button onClick={browse}>Browse</button></div></div>
       {data.apps.length === 0 ? <div className="empty">No applications selected</div> : <ul>{data.apps.map((a,i)=><li key={i}><span title={a.pattern}>{a.label}<small>{a.kind} · {running.filter(p => matchesRule(a,p)).length} live matches · {a.pattern}</small></span><div className="row"><button className="text" onClick={()=>editApp(i)}>Edit</button><button className="text" onClick={()=>update({apps:data.apps.filter((_,j)=>i!==j)})}>Remove</button></div></li>)}</ul>}
-    </section>
+    </section>}
     {error && <div className="error" role="alert">{error}</div>}
     <button className="connect" disabled={status==='connecting'} onClick={toggle}>{status === 'connected' ? 'Disconnect' : status === 'connecting' ? 'Connecting…' : 'Connect'}</button>
-    <details><summary>Settings</summary><div className="settings"><label>Tunnel mode<select value={data.mode} onChange={e=>update({mode:e.target.value as Data['mode']})}><option value="inclusive">Inclusive</option><option value="exclusive">Exclusive</option></select></label><label>Log level<select value={data.level} onChange={e=>update({level:e.target.value as Data['level']})}>{['trace','debug','info','warn','error','fatal','panic'].map(x=><option key={x}>{x}</option>)}</select></label><details className="advanced"><summary>Advanced</summary><label>Engine override (optional)<div className="row"><input readOnly value={data.binary} placeholder="Automatic"/><button onClick={browseEngine}>Browse</button>{data.binary && <button onClick={() => update({binary:''})}>Clear</button>}</div></label></details></div></details>
+    <details><summary>Settings</summary><div className="settings"><label>Tunnel mode<select value={data.mode} onChange={e=>update({mode:e.target.value as TunnelMode})}><option value="inclusive">Selected apps only</option><option value="exclusive">All except selected</option><option value="whole">Whole system</option></select></label><label>Log level<select value={data.level} onChange={e=>update({level:e.target.value as Data['level']})}>{['trace','debug','info','warn','error','fatal','panic'].map(x=><option key={x}>{x}</option>)}</select></label><details className="advanced"><summary>Advanced</summary><label>Engine override (optional)<div className="row"><input readOnly value={data.binary} placeholder="Automatic"/><button onClick={browseEngine}>Browse</button>{data.binary && <button onClick={() => update({binary:''})}>Clear</button>}</div></label></details></div></details>
     <details><summary>Logs <span>{visible.length}</span></summary><pre>{visible.join('\n') || 'No logs yet.'}</pre></details>
     {installed && <InstalledAppsPicker apps={installed} selected={data.apps} onClose={() => setInstalled(null)} onSelect={addApp}/>}
     {showRunning && <RunningAppsPicker apps={running} onClose={() => setShowRunning(false)} onSelect={app => { addApp(app); setShowRunning(false); }}/>}

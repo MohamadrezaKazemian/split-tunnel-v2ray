@@ -26,4 +26,20 @@ describe('config generator', () => {
     expect(() => generateConfig({proxy,apps:[]})).toThrow();
     expect(() => generateConfig({proxy,apps:[{kind:'app',label:'bad',pattern:'/usr/bin'}]})).toThrow();
   });
+  it('generates a dual-stack whole-system tunnel without application rules', () => {
+    const c = generateConfig({proxy, mode:'whole', apps:[]}) as any;
+    expect(c.route.final).toBe('proxy');
+    expect(c.inbounds[0].address).toContain('fdfe:dcba:9876::1/126');
+    expect(c.route.rules).toContainEqual({domain:['example.com'], action:'route', outbound:'direct'});
+    expect(c.route.rules).toContainEqual(expect.objectContaining({ip_cidr:expect.arrayContaining(['127.0.0.0/8', '::1/128', 'fc00::/7']), outbound:'direct'}));
+    expect(c.dns.rules).toContainEqual({domain:['example.com'], action:'route', server:'local'});
+    expect(c.dns.final).toBe('remote');
+    expect(c.dns.rules).toContainEqual({query_type:['A','AAAA'], action:'route', server:'fakeip'});
+  });
+  it('bypasses an IP proxy endpoint in whole-system mode', () => {
+    const ipProxy = parseLink('trojan://secret@[2001:db8::1]:443').outbound;
+    const c = generateConfig({proxy:ipProxy, mode:'whole', apps:[]}) as any;
+    expect(c.route.rules).toContainEqual({ip_cidr:['2001:db8::1/128'], action:'route', outbound:'direct'});
+    expect(c.dns.rules).toContainEqual({ip_cidr:['2001:db8::1/128'], action:'route', server:'local'});
+  });
 });

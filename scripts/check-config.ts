@@ -8,8 +8,9 @@ const dir = mkdtempSync(join(tmpdir(), 'split-tunnel-check-'));
 try {
   const file = join(dir, 'config.json');
   const proxy = parseLink('vless://00000000-0000-4000-8000-000000000000@example.com:443?security=tls').outbound;
-  for (const mode of ['inclusive', 'exclusive'] as const) {
-    writeFileSync(file, JSON.stringify(generateConfig({ proxy, apps: [{ kind:'term', label:'sample', pattern:'sample-app' }, { kind:'app', label:'Browser', pattern:'/opt/Browser+X' }, { kind:'app', label:'Chrome', pattern:'C:\\Program Files\\Chrome' }], mode }), null, 2));
+  for (const mode of ['inclusive', 'exclusive', 'whole'] as const) {
+    const apps = mode === 'whole' ? [] : [{ kind:'term' as const, label:'sample', pattern:'sample-app' }, { kind:'app' as const, label:'Browser', pattern:'/opt/Browser+X' }, { kind:'app' as const, label:'Chrome', pattern:'C:\\Program Files\\Chrome' }];
+    writeFileSync(file, JSON.stringify(generateConfig({ proxy, apps, mode }), null, 2));
     const result = spawnSync(process.env.SING_BOX || 'sing-box', ['check', '-c', file], { stdio: 'inherit' });
     if (result.error) throw result.error;
     if (result.status !== 0) process.exitCode = result.status || 1;
