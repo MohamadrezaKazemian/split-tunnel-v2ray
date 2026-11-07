@@ -110,7 +110,7 @@ sudo apt install ./src-tauri/target/release/bundle/deb/*.deb
 The release executable is also available at `src-tauri/target/release/split-tunnel-backend`. Keep the `sing-box` sidecar next to it if running the executable outside the package. To verify the package contains both files, replace the example filename with the generated package for your architecture:
 
 ```sh
-dpkg-deb -c "src-tauri/target/release/bundle/deb/Split Tunnel_0.2.0_amd64.deb" | grep -E 'usr/bin/(split-tunnel-backend|sing-box)$'
+dpkg-deb -c "src-tauri/target/release/bundle/deb/Split Tunnel_0.2.1_amd64.deb" | grep -E 'usr/bin/(split-tunnel-backend|sing-box)$'
 ```
 
 Both executables should be listed next to each other. To compare the packaged sidecar with the setup download, pipe `dpkg-deb --fsys-tarfile <package>` into `tar -xOf - usr/bin/sing-box | sha256sum` and compare it with `sha256sum src-tauri/binaries/sing-box-<target-triple>`.

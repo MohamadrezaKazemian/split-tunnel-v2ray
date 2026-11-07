@@ -2,6 +2,8 @@
 
 ## What's included
 
+- Fix AppImage elevation when the user's FUSE mount is inaccessible to root.
+- Allow installed apps in shared directories to be added by executable path.
 - Desktop split tunneling with an unmodified sing-box TUN sidecar and process rules.
 - Import compatible proxy links or subscriptions, select applications, and connect or disconnect.
 - Whole-app, executable-path, and search-term rules with live process counts.
