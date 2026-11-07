@@ -191,8 +191,16 @@ fn temporary_config(targets: &[PingTarget], controller_port: u16, secret: &str) 
 }
 
 fn clash_delay(controller: &str, secret: &str, index: usize) -> PingMeasurement {
+    clash_delay_for_tag(controller, secret, &format!("ping-{index}"))
+}
+
+pub fn running_delay(controller: &str, secret: &str) -> PingMeasurement {
+    clash_delay_for_tag(controller, secret, "proxy")
+}
+
+fn clash_delay_for_tag(controller: &str, secret: &str, tag: &str) -> PingMeasurement {
     let encoded_url = url_encode(TEST_URL);
-    let url = format!("{controller}/proxies/ping-{index}/delay?url={encoded_url}&timeout=5000");
+    let url = format!("{controller}/proxies/{tag}/delay?url={encoded_url}&timeout=5000");
     let client = match reqwest::blocking::Client::builder()
         .timeout(REAL_TIMEOUT + Duration::from_secs(2))
         .build()
@@ -220,12 +228,12 @@ fn endpoint(outbound: &Value) -> Option<(String, u16)> {
     Some((host, port))
 }
 
-fn reserve_loopback_port() -> io::Result<u16> {
+pub fn reserve_loopback_port() -> io::Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
     listener.local_addr().map(|address| address.port())
 }
 
-fn random_secret() -> Result<String, getrandom::Error> {
+pub fn random_secret() -> Result<String, getrandom::Error> {
     let mut bytes = [0u8; 32];
     getrandom::getrandom(&mut bytes)?;
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())

@@ -1,5 +1,6 @@
 //! Dedicated owner thread keeps Linux PR_SET_PDEATHSIG's parent thread alive
 //! from child spawn through disconnect (Linux ties the signal to the spawning thread).
+use crate::ping::{self, PingMeasurement};
 use crate::process_manager::{LogLine, ProcessManager, Status};
 use std::{
     fs, io,
@@ -21,6 +22,9 @@ pub enum Request {
     Status {
         reply: Sender<String>,
     },
+    Ping {
+        reply: Sender<PingMeasurement>,
+    },
     Shutdown,
 }
 #[derive(Clone)]
@@ -41,6 +45,7 @@ impl Service {
             #[cfg(not(windows))]
             let mut manager = ProcessManager::new();
             let mut state = String::from("disconnected");
+            let mut controller: Option<(String, String)> = None;
             let mut owns_pidfile = false;
             #[cfg(any(target_os = "linux", windows))]
             let lock = acquire_lock(&pidfile);
@@ -97,7 +102,10 @@ impl Service {
                             Ok(())
                         })();
                         match &result {
-                            Ok(()) => state = "connected".into(),
+                            Ok(()) => {
+                                state = "connected".into();
+                                controller = controller_from_config(&config);
+                            }
                             Err(e) => {
                                 state = format!("failed: {e}");
                                 let stopped = manager.stop(Duration::from_secs(6)).is_ok();
@@ -119,6 +127,7 @@ impl Service {
                             .stop(Duration::from_secs(6))
                             .map_err(|e| e.to_string());
                         if result.is_ok() {
+                            controller = None;
                             if owns_pidfile {
                                 let _ = fs::remove_file(&pidfile);
                                 owns_pidfile = false;
@@ -136,6 +145,13 @@ impl Service {
                     Ok(Request::Status { reply }) => {
                         let _ = reply.send(state.clone());
                     }
+                    Ok(Request::Ping { reply }) => {
+                        let result = controller
+                            .as_ref()
+                            .map(|(url, secret)| ping::running_delay(url, secret))
+                            .unwrap_or(PingMeasurement::Timeout);
+                        let _ = reply.send(result);
+                    }
                     Ok(Request::Shutdown) | Err(mpsc::RecvTimeoutError::Disconnected) => {
                         if owns_pidfile {
                             if manager.stop(Duration::from_secs(6)).is_ok() {
@@ -152,6 +168,7 @@ impl Service {
                             match manager.status() {
                                 Ok(Status::Exited(exit)) => {
                                     state = format!("failed: sing-box exited: {exit}");
+                                    controller = None;
                                     state_changed = true;
                                     if owns_pidfile {
                                         if exit.success() {
@@ -184,6 +201,34 @@ impl Service {
         self.tx
             .send(request)
             .map_err(|_| "process service stopped".into())
+    }
+}
+
+fn controller_from_config(config: &str) -> Option<(String, String)> {
+    let config: serde_json::Value = serde_json::from_str(config).ok()?;
+    let api = config.pointer("/experimental/clash_api")?;
+    let address = api.get("external_controller")?.as_str()?;
+    let secret = api.get("secret")?.as_str()?;
+    Some((format!("http://{address}"), secret.to_owned()))
+}
+
+#[cfg(test)]
+mod controller_tests {
+    use super::controller_from_config;
+
+    #[test]
+    fn reads_loopback_controller_credentials() {
+        let config = r#"{"experimental":{"clash_api":{"external_controller":"127.0.0.1:9123","secret":"not-logged"}}}"#;
+        assert_eq!(
+            controller_from_config(config),
+            Some(("http://127.0.0.1:9123".into(), "not-logged".into()))
+        );
+    }
+
+    #[test]
+    fn rejects_missing_controller_credentials() {
+        assert!(controller_from_config("{}").is_none());
+        assert!(controller_from_config(r#"{"experimental":{"clash_api":{}}}"#).is_none());
     }
 }
 #[cfg(target_os = "linux")]

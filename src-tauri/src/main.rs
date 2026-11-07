@@ -120,6 +120,14 @@ async fn connect(
     }
     .to_string();
     config["log"]["level"] = engine_level.into();
+    let controller_port = split_tunnel_backend::ping::reserve_loopback_port()
+        .map_err(|_| "Could not reserve the local ping controller port")?;
+    let controller_secret = split_tunnel_backend::ping::random_secret()
+        .map_err(|_| "Could not create the local ping controller secret")?;
+    config["experimental"]["clash_api"] = serde_json::json!({
+        "external_controller": format!("127.0.0.1:{controller_port}"),
+        "secret": controller_secret,
+    });
     let service = state.service.clone();
     tauri::async_runtime::spawn_blocking(move || {
         reply(&service, |reply| Request::Connect {
@@ -158,6 +166,19 @@ async fn ping_configs(
 ) -> Result<Vec<split_tunnel_backend::ping::PingResult>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         split_tunnel_backend::ping::ping_configs(binary.as_deref(), targets)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+async fn active_ping(
+    state: State<'_, AppState>,
+) -> Result<split_tunnel_backend::ping::PingMeasurement, String> {
+    let service = state.service.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let (tx, rx) = mpsc::channel();
+        service.request(Request::Ping { reply: tx })?;
+        rx.recv().map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -364,6 +385,7 @@ fn main() {
             disconnect,
             status,
             ping_configs,
+            active_ping,
             running_apps,
             installed_apps,
             fetch_subscription,
