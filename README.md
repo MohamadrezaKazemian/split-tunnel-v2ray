@@ -21,9 +21,11 @@ Modern theme:
 
 - Select whole installed or running applications, individual executables, or matching terms; view live process counts.
 - Import supported VLESS, VMess, Trojan, and Shadowsocks links or subscriptions.
+- Test profiles with TCP and proxy delay measurements, including batch and live ping.
 - Choose selected-apps-only, all-except-selected, or whole-system tunnel routing, then connect and disconnect.
 - Export, copy, or clear live logs; exported details are redacted by default.
 - Check GitHub releases, including prereleases, and install signed updates on supported installations.
+- Switch between Classic and Modern themes; Classic is the default.
 - Linux polkit elevation and experimental Windows UAC support.
 
 ## How it works
@@ -106,7 +108,7 @@ sudo apt install ./src-tauri/target/release/bundle/deb/*.deb
 The release executable is also available at `src-tauri/target/release/split-tunnel-backend`. Keep the `sing-box` sidecar next to it if running the executable outside the package. To verify the package contains both files, replace the example filename with the generated package for your architecture:
 
 ```sh
-dpkg-deb -c "src-tauri/target/release/bundle/deb/Split Tunnel_0.1.0_amd64.deb" | grep -E 'usr/bin/(split-tunnel-backend|sing-box)$'
+dpkg-deb -c "src-tauri/target/release/bundle/deb/Split Tunnel_0.2.0_amd64.deb" | grep -E 'usr/bin/(split-tunnel-backend|sing-box)$'
 ```
 
 Both executables should be listed next to each other. To compare the packaged sidecar with the setup download, pipe `dpkg-deb --fsys-tarfile <package>` into `tar -xOf - usr/bin/sing-box | sha256sum` and compare it with `sha256sum src-tauri/binaries/sing-box-<target-triple>`.

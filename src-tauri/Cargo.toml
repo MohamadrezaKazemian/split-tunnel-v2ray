@@ -1,7 +1,7 @@
 [package]
 default-run = "split-tunnel-backend"
 name = "split-tunnel-backend"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Desktop process-based split tunneling using sing-box and Tauri"
 license = "MIT"
