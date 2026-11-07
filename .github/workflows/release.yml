@@ -39,7 +39,7 @@ jobs:
           cp -- "$image" "release-output/split-tunnel-v2ray_${version}_linux_amd64.AppImage"
           cp -- "$image.sig" "release-output/split-tunnel-v2ray_${version}_linux_amd64.AppImage.sig"
           dpkg-deb -c "release-output/split-tunnel-v2ray_${version}_linux_amd64.deb" | grep -E 'usr/bin/sing-box$'
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: linux-installers
           path: release-output/*
@@ -79,7 +79,7 @@ jobs:
           ! test -e '/usr/share/applications/Split Tunnel.desktop'
           mkdir release-output
           install -m 0644 "packaging/arch/split-tunnel-v2ray-${version}-1-x86_64.pkg.tar.zst" "release-output/split-tunnel-v2ray_${version}_linux_x86_64.pkg.tar.zst"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: arch-installer
           path: release-output/*.pkg.tar.zst
@@ -117,7 +117,7 @@ jobs:
           Invoke-WebRequest https://raw.githubusercontent.com/SagerNet/sing-box/v1.14.4/LICENSE -OutFile portable/sing-box-LICENSE.txt
           Invoke-WebRequest https://www.gnu.org/licenses/gpl-3.0.txt -OutFile portable/GPL-3.0.txt
           Compress-Archive -Path portable/* -DestinationPath "release-output/split-tunnel-v2ray_${version}_windows_x64-portable.zip"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: windows-installers
           path: release-output/*
