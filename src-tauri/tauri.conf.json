@@ -27,6 +27,10 @@
     "active": true,
     "externalBin": [
       "binaries/sing-box"
+    ],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
     ]
   }
 }
