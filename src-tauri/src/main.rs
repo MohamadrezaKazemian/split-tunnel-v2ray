@@ -184,6 +184,51 @@ async fn active_ping(
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn check_updates() -> Result<Option<split_tunnel_backend::updates::AvailableUpdate>, String> {
+    split_tunnel_backend::updates::check().await
+}
+
+#[tauri::command]
+async fn install_update(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    version: String,
+) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    let (tx, rx) = mpsc::channel();
+    state.service.request(Request::Status { reply: tx })?;
+    if rx.recv().map_err(|e| e.to_string())? != "disconnected" {
+        return Err("Disconnect the tunnel before updating".into());
+    }
+    let kind = split_tunnel_backend::updates::install_kind();
+    if kind != "appimage" && kind != "nsis" {
+        return Err(
+            "Automatic updates are available only for AppImage and NSIS installations".into(),
+        );
+    }
+    let endpoint = split_tunnel_backend::updates::endpoint(&version)?;
+    let updater = app
+        .updater_builder()
+        .endpoints(vec![endpoint])
+        .map_err(|e| e.to_string())?
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| format!("Update check failed: {e}"))?
+        .ok_or("The selected update is no longer available")?;
+    if update.version != version {
+        return Err("Update manifest version does not match the selected release".into());
+    }
+    update
+        .download_and_install(|_, _| {}, || {})
+        .await
+        .map_err(|e| format!("Update failed: {e}"))?;
+    app.restart();
+}
+#[tauri::command]
 async fn fetch_subscription(url: String) -> Result<String, String> {
     const LIMIT: usize = 2 * 1024 * 1024;
     let parsed = reqwest::Url::parse(&url).map_err(|_| "Invalid subscription URL")?;
@@ -425,6 +470,7 @@ fn main() {
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let export_log = tauri::menu::MenuItem::with_id(
                 app,
@@ -464,6 +510,8 @@ fn main() {
             status,
             ping_configs,
             active_ping,
+            check_updates,
+            install_update,
             running_apps,
             installed_apps,
             fetch_subscription,

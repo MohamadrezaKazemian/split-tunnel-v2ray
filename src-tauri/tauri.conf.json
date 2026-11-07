@@ -25,6 +25,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": false,
     "externalBin": [
       "binaries/sing-box"
     ],
@@ -32,5 +33,11 @@
       "icons/icon.png",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFENjg3NTUzQjI5N0JDNTEKUldSUnZKZXlVM1ZvSGZlSWN1NUEwOW9LdHhObmhCTlJtZ0U4TExhVDdQRFV5MkE0a1llSkpDN3EK",
+      "endpoints": ["https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/latest/download/latest.json"]
+    }
   }
 }

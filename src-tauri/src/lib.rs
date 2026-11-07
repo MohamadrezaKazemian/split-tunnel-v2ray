@@ -6,3 +6,4 @@ pub mod service;
 
 pub mod installed_apps;
 pub mod log_export;
+pub mod updates;

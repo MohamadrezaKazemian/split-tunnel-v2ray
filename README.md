@@ -15,6 +15,7 @@ A desktop app for process-based split tunneling with Tauri, React, and sing-box.
 - Import supported VLESS, VMess, Trojan, and Shadowsocks links or subscriptions.
 - Choose selected-apps-only, all-except-selected, or whole-system tunnel routing, then connect and disconnect.
 - Export, copy, or clear live logs; exported details are redacted by default.
+- Check GitHub releases, including prereleases, and install signed updates on supported installations.
 - Linux polkit elevation and experimental Windows UAC support.
 
 ## How it works
@@ -48,6 +49,10 @@ Supply your own proxy link or subscription, select applications when using a spl
 **Does selecting a parent automatically include its children?** No. See the process and DNS limitations below.
 
 **Is Windows production-ready?** No. It is experimental and the [Windows test plan](docs/WINDOWS_TEST_PLAN.md) has not been completed on a real machine.
+
+**How do updates work?** The app checks published GitHub releases on startup, including prereleases. You can disable the check or run it manually in Settings. AppImage and recognized Windows NSIS installations can download a signed update and restart after verification; disconnect the tunnel first. Debian and Arch packages are updated manually using the command shown in the app. Other installations need a manual download. Download and signature failures do not replace the current installation. Review the update notes before installing.
+
+Release builds require `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` as GitHub Actions secrets. The release workflow signs the AppImage and NSIS installer, publishes their `.sig` files and a version-specific `latest.json`, and includes those assets in `SHA256SUMS.txt`. The configured public key verifies updates; never add the signing private key to the repository. Real published-release upgrades and Windows elevated updates have not been tested yet.
 
 ## Build from source
 
