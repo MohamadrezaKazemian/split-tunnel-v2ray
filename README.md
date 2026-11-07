@@ -22,12 +22,13 @@ The app generates a configuration and orchestrates an unmodified sing-box 1.14.4
 
 ## Downloads
 
-These links will work when the v0.1.0 draft is published. Windows builds are experimental.
+Windows builds are experimental.
 
 | OS and format | Download | Which should I pick? |
 | --- | --- | --- |
 | Linux x64, Debian package | [split-tunnel-v2ray_0.1.0_linux_amd64.deb](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.deb) | Install on Debian or Ubuntu. |
 | Linux x64, AppImage | [split-tunnel-v2ray_0.1.0_linux_amd64.AppImage](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.AppImage) | Run without installing; make the file executable first. |
+| Arch Linux x64 | `sudo pacman -U ./split-tunnel-v2ray_<version>_linux_x86_64.pkg.tar.zst` | Install the release package directly. AUR support is coming. |
 | Windows x64, installer | [split-tunnel-v2ray_0.1.0_windows_x64-setup.exe](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-setup.exe) | Use the installer for normal setup. |
 | Windows x64, portable | [split-tunnel-v2ray_0.1.0_windows_x64-portable.zip](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-portable.zip) | Extract and run without installation; administrator access and WebView2 are still required. |
 
@@ -97,6 +98,16 @@ dpkg-deb -c "src-tauri/target/release/bundle/deb/Split Tunnel_0.1.0_amd64.deb" |
 Both executables should be listed next to each other. To compare the packaged sidecar with the setup download, pipe `dpkg-deb --fsys-tarfile <package>` into `tar -xOf - usr/bin/sing-box | sha256sum` and compare it with `sha256sum src-tauri/binaries/sing-box-<target-triple>`.
 
 An AppImage can be requested with `pnpm tauri build --bundles appimage`; the v0.1.0 release AppImage was smoke-tested under Xvfb. Desktop polkit authorization and networking still need the platform checks described below.
+
+### Arch Linux
+
+Install the downloaded Arch package with:
+
+```sh
+sudo pacman -U ./split-tunnel-v2ray_<version>_linux_x86_64.pkg.tar.zst
+```
+
+The package includes the application and its bundled sing-box sidecar. Connecting requests administrator access through polkit. AUR support is coming; updates are manual with `pacman -U` until the AUR package is live.
 
 ### Windows 10/11 x64
 

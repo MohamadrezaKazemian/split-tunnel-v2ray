@@ -1,0 +1,33 @@
+# Maintainer: Split Tunnel contributors <https://github.com/MohamadrezaKazemian/split-tunnel-v2ray>
+# CI-only Arch package recipe. The release workflow supplies the matching .deb
+# from its Linux build as a local source before running makepkg.
+
+pkgname=split-tunnel-v2ray
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Process-based V2Ray split-tunneling desktop application'
+arch=('x86_64')
+url='https://github.com/MohamadrezaKazemian/split-tunnel-v2ray'
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'polkit' 'glib2' 'gdk-pixbuf2' 'libsoup3' 'dbus' 'hicolor-icon-theme' 'cairo' 'libgcc' 'glibc')
+options=('!strip')
+install='split-tunnel-v2ray.install'
+
+_deb="split-tunnel-v2ray_${pkgver}_linux_amd64.deb"
+source=("${_deb}" 'LICENSE' 'THIRD_PARTY_NOTICES.md')
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+package() {
+  local data_archive
+  data_archive="$(bsdtar -tf "${srcdir}/${_deb}" | awk '/^data\.tar\./ { print; exit }')"
+  [[ -n "${data_archive}" ]] || {
+    printf 'Could not find data.tar.* in %s\n' "${_deb}" >&2
+    return 1
+  }
+
+  # Keep the upstream layout: the app discovers its bundled sing-box sidecar
+  # next to the executable under /usr/bin.
+  bsdtar -xOf "${srcdir}/${_deb}" "${data_archive}" | bsdtar -x -C "${pkgdir}"
+  install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${srcdir}/THIRD_PARTY_NOTICES.md" "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_NOTICES.md"
+}

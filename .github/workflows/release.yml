@@ -1,112 +1,141 @@
 name: Draft release
+
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
+
 permissions:
   contents: read
+
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            bundles: deb,appimage
-          - os: windows-latest
-            bundles: nsis
-    runs-on: ${{ matrix.os }}
+  linux:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 12.18.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: { version: 12.18.0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
       - name: Install Linux dependencies
-        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
       - run: pnpm install --frozen-lockfile
       - run: pnpm setup:engine
-      - run: pnpm tauri build --bundles ${{ matrix.bundles }}
-      - name: Verify Debian sidecar
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          package=$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)
-          test -n "$package"
-          dpkg-deb -c "$package" | grep -E 'usr/bin/sing-box$'
-      - name: Verify Windows sidecar
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $installer = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1
-          if (-not $installer) { throw 'NSIS installer missing' }
-          $contents = & 7z l $installer.FullName
-          if ($LASTEXITCODE -ne 0 -or -not ($contents | Select-String 'sing-box\.exe')) { throw 'sing-box.exe not found in installer' }
+      - run: pnpm tauri build --bundles deb,appimage
       - name: Prepare Linux downloads
-        if: runner.os == 'Linux'
         shell: bash
         run: |
+          set -euo pipefail
           version=${GITHUB_REF_NAME#v}
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]
           test "$(node -p "require('./package.json').version")" = "$version"
           mkdir release-output
-          mapfile -d '' debs < <(find src-tauri/target/release/bundle/deb -maxdepth 1 -name '*.deb' -print0)
-          mapfile -d '' images < <(find src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' -print0)
-          test "${#debs[@]}" -eq 1 && test "${#images[@]}" -eq 1
-          cp -- "${debs[0]}" "release-output/split-tunnel-v2ray_${version}_linux_amd64.deb"
-          cp -- "${images[0]}" "release-output/split-tunnel-v2ray_${version}_linux_amd64.AppImage"
+          deb=$(find src-tauri/target/release/bundle/deb -maxdepth 1 -name '*.deb' -print -quit)
+          image=$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -name '*.AppImage' -print -quit)
+          test -n "$deb" && test -n "$image"
+          cp -- "$deb" "release-output/split-tunnel-v2ray_${version}_linux_amd64.deb"
+          cp -- "$image" "release-output/split-tunnel-v2ray_${version}_linux_amd64.AppImage"
+          dpkg-deb -c "release-output/split-tunnel-v2ray_${version}_linux_amd64.deb" | grep -E 'usr/bin/sing-box$'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: linux-installers
+          path: release-output/*
+          if-no-files-found: error
+
+  arch:
+    needs: linux
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: { name: linux-installers, path: release-assets }
+      - name: Build Arch package from the Linux build artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          pacman -Syu --noconfirm --needed base-devel namcap xorg-server-xvfb webkit2gtk-4.1 gtk3 polkit glib2 gdk-pixbuf2 libsoup3 dbus hicolor-icon-theme cairo libgcc glibc
+          version=${GITHUB_REF_NAME#v}
+          sed -i "s/^pkgver=.*/pkgver=${version}/" packaging/arch/PKGBUILD
+          install -m 0644 "release-assets/split-tunnel-v2ray_${version}_linux_amd64.deb" "packaging/arch/split-tunnel-v2ray_${version}_linux_amd64.deb"
+          install -m 0644 LICENSE THIRD_PARTY_NOTICES.md packaging/arch/
+          useradd --create-home builder
+          chown -R builder:builder packaging/arch
+          runuser -u builder -- bash -c 'cd packaging/arch && namcap PKGBUILD && makepkg --noconfirm --nodeps'
+          namcap "packaging/arch/split-tunnel-v2ray-${version}-1-x86_64.pkg.tar.zst"
+          pacman -U --noconfirm "packaging/arch/split-tunnel-v2ray-${version}-1-x86_64.pkg.tar.zst"
+          pacman -Ql split-tunnel-v2ray | grep -E '/usr/bin/(split-tunnel-backend|sing-box)$|/usr/share/applications/Split Tunnel.desktop$'
+          set +e
+          timeout 12s xvfb-run -a /usr/bin/split-tunnel-backend
+          launch_status=$?
+          set -e
+          test "$launch_status" -eq 124
+          pacman -R --noconfirm split-tunnel-v2ray
+          ! test -e /usr/bin/split-tunnel-backend
+          ! test -e /usr/bin/sing-box
+          ! test -e '/usr/share/applications/Split Tunnel.desktop'
+          mkdir release-output
+          install -m 0644 "packaging/arch/split-tunnel-v2ray-${version}-1-x86_64.pkg.tar.zst" "release-output/split-tunnel-v2ray_${version}_linux_x86_64.pkg.tar.zst"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: arch-installer
+          path: release-output/*.pkg.tar.zst
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with: { version: 12.18.0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm setup:engine
+      - run: pnpm tauri build --bundles nsis
       - name: Prepare Windows downloads
-        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $version = $env:GITHUB_REF_NAME -replace '^v', ''
-          if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$') { throw 'Invalid release tag' }
           if ((Get-Content package.json | ConvertFrom-Json).version -ne $version) { throw 'Tag and package version differ' }
           New-Item -ItemType Directory -Path release-output, portable | Out-Null
-          $installers = @(Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe)
-          if ($installers.Count -ne 1) { throw 'Expected exactly one NSIS installer' }
-          Copy-Item $installers[0].FullName "release-output/split-tunnel-v2ray_${version}_windows_x64-setup.exe"
+          $installer = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer missing' }
+          Copy-Item $installer.FullName "release-output/split-tunnel-v2ray_${version}_windows_x64-setup.exe"
           Copy-Item src-tauri/target/release/split-tunnel-backend.exe portable/split-tunnel-backend.exe
           Copy-Item src-tauri/binaries/sing-box-x86_64-pc-windows-msvc.exe portable/sing-box.exe
           Copy-Item LICENSE, THIRD_PARTY_NOTICES.md portable/
           Invoke-WebRequest https://raw.githubusercontent.com/SagerNet/sing-box/v1.14.4/LICENSE -OutFile portable/sing-box-LICENSE.txt
           Invoke-WebRequest https://www.gnu.org/licenses/gpl-3.0.txt -OutFile portable/GPL-3.0.txt
           Compress-Archive -Path portable/* -DestinationPath "release-output/split-tunnel-v2ray_${version}_windows_x64-portable.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: installers-${{ runner.os }}
+          name: windows-installers
           path: release-output/*
           if-no-files-found: error
+
   release:
-    needs: build
+    needs: [linux, arch, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-          merge-multiple: true
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: { path: release-assets, merge-multiple: true }
       - name: Gather assets and checksums
         shell: bash
         run: |
+          set -euo pipefail
           mkdir release-files
           version=${GITHUB_REF_NAME#v}
-          for name in "split-tunnel-v2ray_${version}_linux_amd64.deb" "split-tunnel-v2ray_${version}_linux_amd64.AppImage" "split-tunnel-v2ray_${version}_windows_x64-setup.exe" "split-tunnel-v2ray_${version}_windows_x64-portable.zip"; do
-            test -f "release-assets/$name"
+          for name in "split-tunnel-v2ray_${version}_linux_amd64.deb" "split-tunnel-v2ray_${version}_linux_amd64.AppImage" "split-tunnel-v2ray_${version}_linux_x86_64.pkg.tar.zst" "split-tunnel-v2ray_${version}_windows_x64-setup.exe" "split-tunnel-v2ray_${version}_windows_x64-portable.zip"; do
             cp -- "release-assets/$name" "release-files/$name"
           done
           cp LICENSE THIRD_PARTY_NOTICES.md release-files/
           curl --fail --location --retry 3 https://raw.githubusercontent.com/SagerNet/sing-box/v1.14.4/LICENSE -o release-files/sing-box-LICENSE.txt
           curl --fail --location --retry 3 https://www.gnu.org/licenses/gpl-3.0.txt -o release-files/GPL-3.0.txt
-          cd release-files
-          sha256sum * > SHA256SUMS.txt
+          (cd release-files && sha256sum * > SHA256SUMS.txt)
       - name: Create prerelease draft
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,6 @@
+post_install() {
+  cat <<'EOF'
+Split Tunnel asks for administrator privileges through polkit when you connect,
+so its bundled sing-box engine can create and manage the TUN interface.
+EOF
+}

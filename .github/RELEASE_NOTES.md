@@ -15,6 +15,7 @@ Choose the format for your system. Windows builds are experimental.
 | --- | --- | --- |
 | Linux x64, Debian package | [split-tunnel-v2ray_0.1.0_linux_amd64.deb](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.deb) | Install on Debian or Ubuntu. |
 | Linux x64, AppImage | [split-tunnel-v2ray_0.1.0_linux_amd64.AppImage](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.AppImage) | Run without installing; make the file executable first. |
+| Arch Linux x64 | `sudo pacman -U ./split-tunnel-v2ray_0.1.0_linux_x86_64.pkg.tar.zst` | Install the release package directly. AUR support is coming. |
 | Windows x64, installer | [split-tunnel-v2ray_0.1.0_windows_x64-setup.exe](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-setup.exe) | Use the installer for normal setup. |
 | Windows x64, portable | [split-tunnel-v2ray_0.1.0_windows_x64-portable.zip](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-portable.zip) | Extract and run without installation; administrator access and WebView2 are still required. |
 
@@ -24,7 +25,7 @@ Verify downloads using [SHA256SUMS.txt](https://github.com/MohamadrezaKazemian/s
 
 Download the matching installer and `SHA256SUMS.txt` from this release, then verify the checksum before installing.
 
-- **Linux x64:** install the `.deb` with `sudo apt install ./<package>.deb`, or make the `.AppImage` executable (`chmod +x <file>.AppImage`) and run it. A polkit agent and `pkexec` are required.
+- **Linux x64:** install the `.deb` with `sudo apt install ./<package>.deb`, make the `.AppImage` executable (`chmod +x <file>.AppImage`) and run it, or on Arch install the `.pkg.tar.zst` with `sudo pacman -U ./<package>.pkg.tar.zst`. A polkit agent and `pkexec` are required. AUR support is coming; updates are manual until it is live.
 - **Windows x64:** run the NSIS `.exe` installer, or extract the portable ZIP and run `split-tunnel-backend.exe` alongside `sing-box.exe`. Both request administrator access and require WebView2.
 
 ### Verify downloads

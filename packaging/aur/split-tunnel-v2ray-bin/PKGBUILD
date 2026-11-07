@@ -1,0 +1,63 @@
+# Maintainer: Split Tunnel contributors <https://github.com/MohamadrezaKazemian/split-tunnel-v2ray>
+
+pkgname=split-tunnel-v2ray-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Process-based V2Ray split-tunneling desktop application (prebuilt binary)'
+arch=('x86_64')
+url='https://github.com/MohamadrezaKazemian/split-tunnel-v2ray'
+license=('MIT')
+depends=(
+  'webkit2gtk-4.1'
+  'gtk3'
+  'polkit'
+  'glib2'
+  'gdk-pixbuf2'
+  'libsoup3'
+  'dbus'
+  'hicolor-icon-theme'
+  'cairo'
+  'libgcc'
+  'glibc'
+)
+provides=('split-tunnel-v2ray')
+conflicts=('split-tunnel-v2ray')
+options=('!strip')
+install='split-tunnel-v2ray-bin.install'
+
+_release_base="${url}/releases/download/v${pkgver}"
+_deb="split-tunnel-v2ray_${pkgver}_linux_amd64.deb"
+source=(
+  "${_deb}::${_release_base}/${_deb}"
+  "LICENSE::${_release_base}/LICENSE"
+  "THIRD_PARTY_NOTICES.md::${_release_base}/THIRD_PARTY_NOTICES.md"
+)
+sha256sums=(
+  'ab657447714c3f5037cec68e2f064fef4e6d2c57d3e76e911a36cb837dfbf460'
+  '55f0f1214354a74788b508af1f1dd14e9d3d7eff125c53a3cb98b2f86b393836'
+  '39d40c4498936baf36138ea2a61cf773b4a2c45f9119f7598d4bca41da511367'
+)
+
+package() {
+  local data_archive
+  data_archive="$(bsdtar -tf "${srcdir}/${_deb}" | awk '/^data\.tar\./ { print; exit }')"
+  [[ -n "${data_archive}" ]] || {
+    printf 'Could not find data.tar.* in %s\n' "${_deb}" >&2
+    return 1
+  }
+
+  # Install the upstream Debian payload verbatim: the GUI and its bundled
+  # sing-box sidecar must remain adjacent in /usr/bin for engine discovery.
+  bsdtar -xOf "${srcdir}/${_deb}" "${data_archive}" | bsdtar -x -C "${pkgdir}"
+
+  install -Dm644 "${srcdir}/LICENSE" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${srcdir}/THIRD_PARTY_NOTICES.md" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/THIRD_PARTY_NOTICES.md"
+
+  # The bundled sing-box binary is unmodified GPL-3.0-or-later software.
+  # Source: https://github.com/SagerNet/sing-box/tree/v1.14.4
+}
+
+# On first connection the app requests administrator privileges through
+# polkit (pkexec) so sing-box can create its TUN interface.
