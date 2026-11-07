@@ -5,6 +5,9 @@
 - Desktop split tunneling with an unmodified sing-box TUN sidecar and process rules.
 - Import compatible proxy links or subscriptions, select applications, and connect or disconnect.
 - Whole-app, executable-path, and search-term rules with live process counts.
+- Whole-system tunnel mode and per-profile TCP, proxy-delay, batch, and live ping.
+- Classic and Modern themes, plus redacted log export.
+- Release notifications and signed in-app updates for AppImage and NSIS installations.
 - Linux polkit supervision and an experimental Windows implementation.
 
 ## Downloads
@@ -34,7 +37,7 @@ On Linux, place the downloaded files next to `SHA256SUMS.txt` and run `sha256sum
 
 ## Experimental
 
-Linux has had limited manual testing, including an isolated network-namespace cleanup test; full desktop routing and DNS isolation remain unverified. **Windows has not been tested on a real machine.** Installers are unsigned, so Windows SmartScreen or Defender may show a warning. If you have verified the download and decide to run it, SmartScreen may offer **More info > Run anyway**; the exact options depend on system policy.
+Linux whole-system mode has had desktop testing, and an isolated network-namespace test covered cleanup; other routing and DNS configurations remain incompletely verified. **Windows has not been tested on a real machine.** Windows installers lack Authenticode signing, so SmartScreen or Defender may show a warning; updater signatures are separate from Windows code signing. If you have verified the download and decide to run it, SmartScreen may offer **More info > Run anyway**; the exact options depend on system policy.
 
 DNS attribution can be incomplete, UWP/Flatpak/Snap process paths may not match, and helper or child processes outside an app's installation root need separate rules. Process attribution and DNS leaks are not guaranteed. The app runs privileged components and changes system routes. Please report issues with OS and app versions and sanitized logs, removing credentials, subscription links, IP addresses, and personal paths.
 
