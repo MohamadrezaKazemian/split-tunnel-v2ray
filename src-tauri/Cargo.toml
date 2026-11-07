@@ -1,4 +1,5 @@
 [package]
+default-run = "split-tunnel-backend"
 name = "split-tunnel-backend"
 version = "0.1.0"
 edition = "2021"
@@ -12,6 +13,14 @@ authors = ["Mohkeys"]
 [lib]
 name = "split_tunnel_backend"
 path = "src/lib.rs"
+
+[features]
+ping-cli = []
+
+[[bin]]
+name = "ping_config"
+path = "src/bin/ping_config.rs"
+required-features = ["ping-cli"]
 
 [profile.dev]
 debug = "line-tables-only"
