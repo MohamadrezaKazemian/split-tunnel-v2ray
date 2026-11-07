@@ -24,6 +24,69 @@ fn reply(
     service.request(f(tx))?;
     rx.recv().map_err(|e| e.to_string())?
 }
+// Always put actual engine and GUI executables ahead of user-controlled matchers.
+fn protect_processes(
+    config: &mut serde_json::Value,
+    engine: &std::path::Path,
+    app: &std::path::Path,
+) -> Result<(), String> {
+    let mut expressions = Vec::new();
+    let mut names = Vec::new();
+    for path in [engine, app] {
+        let raw = path.to_str().ok_or("Executable path is not valid UTF-8")?;
+        let normalized = if cfg!(windows) {
+            if let Some(unc) = raw.strip_prefix(r"\\?\UNC\") {
+                format!(r"\\{unc}")
+            } else {
+                raw.strip_prefix(r"\\?\").unwrap_or(raw).to_owned()
+            }
+        } else {
+            raw.to_owned()
+        };
+        let raw = normalized.as_str();
+        let escaped: String = raw
+            .chars()
+            .flat_map(|c| {
+                if "\\.+*?()|[]{}^$".contains(c) {
+                    vec!['\\', c]
+                } else {
+                    vec![c]
+                }
+            })
+            .collect();
+        expressions.push(format!(
+            "{}^{}$",
+            if cfg!(windows) { "(?i)" } else { "" },
+            escaped
+        ));
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            names.push(name.to_owned());
+        }
+    }
+    let route = config
+        .pointer_mut("/route/rules")
+        .and_then(|v| v.as_array_mut())
+        .ok_or("Missing route rules")?;
+    route.insert(0, serde_json::json!({"process_path_regex": expressions, "action":"route", "outbound":"direct"}));
+    route.insert(
+        0,
+        serde_json::json!({"process_name": names, "action":"route", "outbound":"direct"}),
+    );
+    let dns = config
+        .pointer_mut("/dns/rules")
+        .and_then(|v| v.as_array_mut())
+        .ok_or("Missing DNS rules")?;
+    dns.insert(
+        0,
+        serde_json::json!({"process_path_regex": expressions, "action":"route", "server":"local"}),
+    );
+    dns.insert(
+        0,
+        serde_json::json!({"process_name": names, "action":"route", "server":"local"}),
+    );
+    Ok(())
+}
+
 #[tauri::command]
 async fn connect(
     state: State<'_, AppState>,
@@ -31,6 +94,8 @@ async fn connect(
     binary: Option<String>,
 ) -> Result<(), String> {
     let binary = split_tunnel_backend::engine::resolve_engine(binary.as_deref())?;
+    let own_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    protect_processes(&mut config, &binary, &own_exe)?;
     #[cfg(windows)]
     if let Some(inbounds) = config.get_mut("inbounds").and_then(|v| v.as_array_mut()) {
         for inbound in inbounds {
@@ -126,25 +191,45 @@ async fn fetch_subscription(url: String) -> Result<String, String> {
     }
     String::from_utf8(bytes).map_err(|_| "Subscription is not UTF-8".into())
 }
+#[derive(Serialize)]
+struct RunningProcess {
+    #[serde(flatten)]
+    app: split_tunnel_backend::installed_apps::InstalledApp,
+    protected: bool,
+}
 #[tauri::command]
-fn running_apps() -> Vec<split_tunnel_backend::installed_apps::InstalledApp> {
-    let mut sys = sysinfo::System::new_all();
-    sys.refresh_all();
-    let mut apps: Vec<_> = sys
-        .processes()
-        .values()
-        .filter_map(|p| {
-            p.exe().map(|e| {
-                split_tunnel_backend::installed_apps::app_from_path(
-                    p.name().to_string_lossy().into_owned(),
-                    e.to_path_buf(),
-                )
+async fn running_apps(binary: Option<String>) -> Result<Vec<RunningProcess>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let engine = split_tunnel_backend::engine::resolve_engine(binary.as_deref()).ok();
+        let own = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.canonicalize().ok());
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_all();
+        let mut apps: Vec<_> = sys
+            .processes()
+            .values()
+            .filter_map(|p| {
+                p.exe().map(|e| {
+                    let canonical = e.canonicalize().ok();
+                    let protected = canonical.as_ref().is_some_and(|path| {
+                        Some(path) == engine.as_ref() || Some(path) == own.as_ref()
+                    });
+                    RunningProcess {
+                        app: split_tunnel_backend::installed_apps::app_from_path(
+                            p.name().to_string_lossy().into_owned(),
+                            e.to_path_buf(),
+                        ),
+                        protected,
+                    }
+                })
             })
-        })
-        .collect();
-    apps.sort_by_key(|a| a.name.to_lowercase());
-    apps.dedup_by(|a, b| a.path == b.path);
-    apps
+            .collect();
+        apps.sort_by_key(|a| a.app.name.to_lowercase());
+        apps
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 #[tauri::command]
 async fn installed_apps(
@@ -286,6 +371,22 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn safety_rules_precede_broad_user_rules_for_route_and_dns() {
+        let mut config = serde_json::json!({"route":{"rules":[{"process_path_regex":["(?i).*"],"action":"route","outbound":"proxy"}]},"dns":{"rules":[{"process_path_regex":["(?i).*"],"action":"route","server":"remote"}]}});
+        let engine = std::path::Path::new("/opt/example/sing+box");
+        let app = std::path::Path::new("/opt/example/app");
+        super::protect_processes(&mut config, engine, app).unwrap();
+        assert_eq!(config["route"]["rules"][0]["outbound"], "direct");
+        assert_eq!(config["route"]["rules"][1]["outbound"], "direct");
+        assert_eq!(config["dns"]["rules"][0]["server"], "local");
+        assert_eq!(config["dns"]["rules"][1]["server"], "local");
+        assert!(config["route"]["rules"][1]["process_path_regex"][0]
+            .as_str()
+            .unwrap()
+            .contains("sing\\+box"));
+        assert_eq!(config["route"]["rules"][2]["outbound"], "proxy");
+    }
     use super::*;
     use std::io::{Read, Write};
     #[test]

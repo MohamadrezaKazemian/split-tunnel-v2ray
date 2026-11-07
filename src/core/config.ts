@@ -1,44 +1,13 @@
 import type { Outbound } from './links';
-export interface SelectedApp { name?: string; path?: string; matchDir?: string | null; sandbox?: string | null }
-export interface ConfigOptions { proxy: Outbound; apps: SelectedApp[]; mode?: 'inclusive' | 'exclusive'; logLevel?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'panic' }
-/** Discord uses versioned app-* directories and a separate updater on Windows. */
-function discordWindowsInstallRoot(path: string): string | undefined {
-  const windowsPath = path.replace(/\//g, '\\');
-  const match = windowsPath.match(/^([a-z]:\\users\\[^\\]+\\appdata\\local\\discord(?:canary|ptb|development)?)(?:\\app-[^\\]+)?\\discord(?:canary|ptb|development)?\.exe$/i);
-  return match?.[1];
-}
-/** Candidate configuration: routing and DNS attribution require platform integration and verification. */
-export function generateConfig({ proxy, apps, mode = 'inclusive', logLevel = 'info' }: ConfigOptions): Record<string, unknown> {
-  if (!apps.length || apps.some(a => !a.name?.trim() && !a.path?.trim())) throw new Error('Select at least one valid application');
-  const matchers = apps.flatMap<Record<string, string[]>>(app => {
-    const path = app.path?.trim();
-    if (!path) {
-      const name = app.name!.trim();
-      if (!/\.exe$/i.test(name)) return [{ process_name: [name] }];
-      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return [{ process_name: [name] }, { process_path_regex: [`(?i)(?:^|[\\\\/])${escapedName}$`] }];
-    }
-    const isWindowsPath = /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\');
-    const exact = { process_path: [path] };
-    const exactMatchers: Record<string, string[]>[] = [exact];
-    if (isWindowsPath) {
-      const escapedPath = path.replace(/\//g, '\\').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      exactMatchers.push({ process_path_regex: [`(?i)^${escapedPath}$`] });
-    }
-    const discordRoot = !app.sandbox && isWindowsPath ? discordWindowsInstallRoot(path) : undefined;
-    if (discordRoot) {
-      const escapedRoot = discordRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      exactMatchers.push({ process_path_regex: [`(?i)^${escapedRoot}\\\\(?:app-[^\\\\]+\\\\)?(?:discord(?:canary|ptb|development)?|update)\\.exe$`] });
-    }
-    const dir = app.matchDir?.replace(/[\\/]+$/, '');
-    const parent = path.replace(/[\\/][^\\/]+$/, '');
-    const normalized = dir?.replace(/\\/g, '/').toLowerCase();
-    const shared = ['/', '/usr', '/usr/bin', '/usr/lib', '/usr/lib64', '/usr/share', '/usr/local', '/usr/lib/x86_64-linux-gnu', '/usr/lib/aarch64-linux-gnu', '/usr/local/bin', '/bin', '/snap/bin', '/opt', 'c:', 'c:/windows', 'c:/windows/system32'];
-    if (!dir || app.sandbox || normalized !== parent.replace(/\\/g, '/').toLowerCase() || shared.includes(normalized!)) return exactMatchers;
-    const escaped = (isWindowsPath ? dir.replace(/\//g, '\\') : dir).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const separator = isWindowsPath ? '\\\\' : '/';
-    const prefix = isWindowsPath ? '(?i)' : '';
-    return [...exactMatchers, { process_path_regex: [`${prefix}^${escaped}${separator}`] }];
+import { ruleRegex, matchesRule, type AppRule, type RunningApp } from './processes';
+export type SelectedApp = AppRule;
+export interface ConfigOptions { proxy: Outbound; apps: AppRule[]; mode?: 'inclusive' | 'exclusive'; running?: RunningApp[]; logLevel?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'panic' }
+export function generateConfig({ proxy, apps, mode = 'inclusive', logLevel = 'info', running = [] }: ConfigOptions): Record<string, unknown> {
+  if (!apps.length) throw new Error('Select at least one valid application');
+  const matchers: Record<string, string[]>[] = apps.flatMap(rule => {
+    const paths = { process_path_regex: [ruleRegex(rule)] };
+    const names = rule.kind === 'term' ? [...new Set(running.filter(app => matchesRule(rule, app)).map(app => app.name).filter(Boolean))] : rule.kind === 'path' && !/[\\/]/.test(rule.pattern) ? [rule.pattern] : [];
+    return names.length ? [paths, { process_name: names }] : [paths];
   });
   const selected = mode === 'inclusive' ? 'proxy' : 'direct';
   const final = mode === 'inclusive' ? 'direct' : 'proxy';

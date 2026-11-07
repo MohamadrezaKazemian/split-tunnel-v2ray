@@ -177,6 +177,29 @@ fn safe_related_dir(path: &Path, name: &str) -> Option<String> {
         None
     }
 }
+// Common distro launchers are scripts in shared directories; use their real install root.
+fn known_wrapper_root(path: &Path, name: &str) -> Option<String> {
+    let parent = path.parent()?.to_string_lossy();
+    if !matches!(parent.as_ref(), "/usr/bin" | "/usr/local/bin" | "/bin") {
+        return None;
+    }
+    let label = format!("{} {}", name, path.file_name()?.to_string_lossy()).to_lowercase();
+    let candidates: &[&str] = if label.contains("chromium") {
+        &["/usr/lib/chromium", "/usr/lib/chromium-browser"]
+    } else if label.contains("chrome") {
+        &["/opt/google/chrome"]
+    } else if label.contains("discord") {
+        &["/opt/discord", "/usr/lib/discord"]
+    } else if label.contains("telegram") {
+        &["/opt/telegram", "/opt/Telegram"]
+    } else {
+        &[]
+    };
+    candidates
+        .iter()
+        .find(|p| Path::new(p).is_dir())
+        .map(|p| (*p).to_owned())
+}
 fn desktop_entry(
     content: &str,
     paths: &[PathBuf],
@@ -233,10 +256,41 @@ fn desktop_entry(
     } else {
         None
     };
-    let match_dir = if sandbox.is_none() {
-        safe_related_dir(&path, &name)
+    let match_dir = if sandbox.as_deref() == Some("Flatpak") {
+        values.get("X-Flatpak").and_then(|id| {
+            if !id
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+            {
+                return None;
+            }
+            let mut roots = vec![PathBuf::from("/var/lib/flatpak/app").join(id)];
+            if let Some(home) = std::env::var_os("HOME") {
+                roots.insert(
+                    0,
+                    PathBuf::from(home)
+                        .join(".local/share/flatpak/app")
+                        .join(id),
+                );
+            }
+            roots
+                .into_iter()
+                .find(|p| p.is_dir())
+                .map(|p| p.to_string_lossy().into_owned())
+        })
+    } else if sandbox.as_deref() == Some("Snap") {
+        values.get("X-SnapInstanceName").and_then(|name| {
+            if !name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "_-".contains(c))
+            {
+                return None;
+            }
+            let root = PathBuf::from("/snap").join(name);
+            root.is_dir().then(|| root.to_string_lossy().into_owned())
+        })
     } else {
-        None
+        safe_related_dir(&path, &name).or_else(|| known_wrapper_root(&path, &name))
     };
     Ok(InstalledApp {
         name,
@@ -305,7 +359,7 @@ pub fn scan() -> Vec<InstalledApp> {
                 }
                 if let Ok(data) = std::fs::read_to_string(&path) {
                     if let Ok(app) = desktop_entry(&data, &paths, &locale, &path, false) {
-                        if seen.insert(app.path.clone()) {
+                        if seen.insert((app.path.clone(), app.match_dir.clone())) {
                             apps.push(app);
                         }
                     }
