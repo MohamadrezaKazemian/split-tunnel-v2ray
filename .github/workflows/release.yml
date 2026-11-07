@@ -70,7 +70,12 @@ jobs:
         shell: bash
         run: |
           mkdir release-files
-          find release-assets -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' \) -exec cp -t release-files {} +
+          while IFS= read -r -d '' asset; do
+            name=$(basename "$asset")
+            name=${name// /.}
+            test ! -e "release-files/$name"
+            cp -- "$asset" "release-files/$name"
+          done < <(find release-assets -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' \) -print0)
           test "$(find release-files -name '*.deb' | wc -l)" -gt 0
           test "$(find release-files -name '*.AppImage' | wc -l)" -gt 0
           test "$(find release-files -name '*.exe' | wc -l)" -gt 0
