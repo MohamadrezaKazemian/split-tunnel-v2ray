@@ -38,13 +38,13 @@ Windows builds are experimental.
 
 | OS and format | Download | Which should I pick? |
 | --- | --- | --- |
-| Linux x64, Debian package | [split-tunnel-v2ray_0.1.0_linux_amd64.deb](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.deb) | Install on Debian or Ubuntu. |
-| Linux x64, AppImage | [split-tunnel-v2ray_0.1.0_linux_amd64.AppImage](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.AppImage) | Run without installing; make the file executable first. |
-| Arch Linux x64 | `sudo pacman -U ./split-tunnel-v2ray_<version>_linux_x86_64.pkg.tar.zst` | Install the release package directly. AUR support is coming. |
-| Windows x64, installer | [split-tunnel-v2ray_0.1.0_windows_x64-setup.exe](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-setup.exe) | Use the installer for normal setup. |
-| Windows x64, portable | [split-tunnel-v2ray_0.1.0_windows_x64-portable.zip](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-portable.zip) | Extract and run without installation; administrator access and WebView2 are still required. |
+| Linux x64, Debian package | [split-tunnel-v2ray_0.2.0_linux_amd64.deb](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.2.0/split-tunnel-v2ray_0.2.0_linux_amd64.deb) | Install on Debian or Ubuntu. |
+| Linux x64, AppImage | [split-tunnel-v2ray_0.2.0_linux_amd64.AppImage](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.2.0/split-tunnel-v2ray_0.2.0_linux_amd64.AppImage) | Run without installing; make the file executable first. |
+| Arch Linux x64 | [split-tunnel-v2ray_0.2.0_linux_x86_64.pkg.tar.zst](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.2.0/split-tunnel-v2ray_0.2.0_linux_x86_64.pkg.tar.zst) | Install with `sudo pacman -U ./split-tunnel-v2ray_0.2.0_linux_x86_64.pkg.tar.zst`. AUR support is coming. |
+| Windows x64, installer | [split-tunnel-v2ray_0.2.0_windows_x64-setup.exe](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.2.0/split-tunnel-v2ray_0.2.0_windows_x64-setup.exe) | Use the installer for normal setup. |
+| Windows x64, portable | [split-tunnel-v2ray_0.2.0_windows_x64-portable.zip](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.2.0/split-tunnel-v2ray_0.2.0_windows_x64-portable.zip) | Extract and run without installation; administrator access and WebView2 are still required. |
 
-Verify downloads using [SHA256SUMS.txt](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/SHA256SUMS.txt).
+Verify downloads using [SHA256SUMS.txt](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.2.0/SHA256SUMS.txt).
 
 ## Usage
 
