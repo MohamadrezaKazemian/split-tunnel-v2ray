@@ -5,3 +5,4 @@ pub mod process_manager;
 pub mod service;
 
 pub mod installed_apps;
+pub mod log_export;

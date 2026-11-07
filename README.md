@@ -14,6 +14,7 @@ A desktop app for process-based split tunneling with Tauri, React, and sing-box.
 - Select whole installed or running applications, individual executables, or matching terms; view live process counts.
 - Import supported VLESS, VMess, Trojan, and Shadowsocks links or subscriptions.
 - Choose selected-apps-only, all-except-selected, or whole-system tunnel routing, then connect and disconnect.
+- Export, copy, or clear live logs; exported details are redacted by default.
 - Linux polkit elevation and experimental Windows UAC support.
 
 ## How it works

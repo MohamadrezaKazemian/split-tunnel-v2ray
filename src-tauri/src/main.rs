@@ -1,6 +1,6 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use split_tunnel_backend::service::{Request, Service};
-use std::{path::PathBuf, sync::mpsc};
+use std::{io::Write, path::PathBuf, process::Command, sync::mpsc};
 use tauri::{Emitter, Manager, State};
 
 #[derive(Clone, Serialize)]
@@ -320,7 +320,6 @@ fn save_data(state: State<'_, AppState>, data: serde_json::Value) -> Result<(), 
     let path = &state.data_file;
     std::fs::create_dir_all(path.parent().ok_or("Invalid data path")?)
         .map_err(|e| e.to_string())?;
-    use std::io::Write;
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create(true).truncate(true);
     #[cfg(unix)]
@@ -338,6 +337,71 @@ fn save_data(state: State<'_, AppState>, data: serde_json::Value) -> Result<(), 
     file.write_all(&serde_json::to_vec_pretty(&data).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LogExportData {
+    mode: String,
+    rule_count: usize,
+    logs: Vec<String>,
+    include_sensitive: bool,
+    binary: Option<String>,
+}
+
+fn installed_engine_version(binary: Option<&str>) -> String {
+    let Ok(engine) = split_tunnel_backend::engine::resolve_engine(binary) else {
+        return "unavailable".into();
+    };
+    Command::new(engine)
+        .arg("version")
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .and_then(|output| output.lines().next().map(str::to_owned))
+        .unwrap_or_else(|| "unavailable".into())
+}
+
+fn prepared_log_export(data: LogExportData) -> String {
+    let engine_version = installed_engine_version(data.binary.as_deref());
+    let os = format!("{} {}", std::env::consts::OS, std::env::consts::ARCH);
+    split_tunnel_backend::log_export::format(split_tunnel_backend::log_export::LogExport {
+        app_version: env!("CARGO_PKG_VERSION"),
+        os: &os,
+        engine_version: &engine_version,
+        mode: &data.mode,
+        rule_count: data.rule_count,
+        lines: &data.logs,
+        include_sensitive: data.include_sensitive,
+    })
+}
+
+#[tauri::command]
+async fn prepare_log_export(data: LogExportData) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || Ok(prepared_log_export(data)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn export_log(path: String, data: LogExportData) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let contents = prepared_log_export(data);
+        let path = PathBuf::from(path);
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(path).map_err(|e| e.to_string())?;
+        file.write_all(contents.as_bytes())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 fn main() {
     #[cfg(target_os = "linux")]
     {
@@ -362,6 +426,20 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let export_log = tauri::menu::MenuItem::with_id(
+                app,
+                "export-log",
+                "Export Log…",
+                true,
+                None::<&str>,
+            )?;
+            app.set_menu(tauri::menu::Menu::with_items(app, &[&export_log])?)?;
+            let menu_handle = app.handle().clone();
+            app.on_menu_event(move |_app, event| {
+                if event.id().as_ref() == "export-log" {
+                    let _ = menu_handle.emit("export-log-request", ());
+                }
+            });
             let dir = app.path().app_data_dir()?;
             let handle = app.handle().clone();
             let service = Service::new(dir.join("sing-box.pid"), move |status, logs| {
@@ -391,7 +469,9 @@ fn main() {
             fetch_subscription,
             resolve_app,
             load_data,
-            save_data
+            save_data,
+            prepare_log_export,
+            export_log
         ])
         .build(tauri::generate_context!())
         .expect("failed to build app")

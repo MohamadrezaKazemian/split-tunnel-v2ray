@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { open } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { parseLink, parseSubscription, type Profile } from './core/links';
 import { generateConfig, type SelectedApp, type TunnelMode } from './core/config';
 import { appRule, pathRule, migrateRule, matchesRule, ruleRegex, isSystemProcess, type RunningApp } from './core/processes';
@@ -18,7 +18,7 @@ function App() {
   const [data, setData] = useState<Data>(initial), [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState('disconnected'), [error, setError] = useState(''), [link, setLink] = useState('');
   const [installed, setInstalled] = useState<InstalledApp[]|null>(null), [loadingInstalled, setLoadingInstalled] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]), [running, setRunning] = useState<RunningApp[]>([]), [showRunning, setShowRunning] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]), [running, setRunning] = useState<RunningApp[]>([]), [showRunning, setShowRunning] = useState(false), [includeSensitive, setIncludeSensitive] = useState(false);
   const [pings, setPings] = useState<Record<number, PingResult>>({}), [pinging, setPinging] = useState<Set<number>>(new Set()), [pingProgress, setPingProgress] = useState<{done:number;total:number}|null>(null), [livePing, setLivePing] = useState<PingMeasurement>();
   const last = useRef(Promise.resolve());
   const pingRun = useRef(0);
@@ -78,6 +78,17 @@ function App() {
   } catch(e) { setStatus(`failed: ${String(e)}`); setError(String(e)); } };
   const showInstalled = async () => { setLoadingInstalled(true); try { setInstalled(await invoke<InstalledApp[]>('installed_apps')); } catch(e) { setError(String(e)); } finally { setLoadingInstalled(false); } };
   const showProcesses = async () => { try { setRunning(await invoke<RunningApp[]>('running_apps', {binary:data.binary || null})); setShowRunning(true); } catch(e) { setError(String(e)); } };
+  const logData = () => ({mode:data.mode, ruleCount:data.apps.length, logs, includeSensitive, binary:data.binary || null});
+  const exportLogs = async () => { try {
+    const day = new Date().toISOString().slice(0, 10);
+    const path = await save({defaultPath:`split-tunnel-log-${day}.txt`, filters:[{name:'Text', extensions:['txt']}]});
+    if (path) await invoke('export_log', {path, data:logData()});
+  } catch (e) { setError(`Could not export log: ${String(e)}`); } };
+  const copyLogs = async () => { try {
+    const text = await invoke<string>('prepare_log_export', {data:logData()});
+    await navigator.clipboard.writeText(text);
+  } catch (e) { setError(`Could not copy log: ${String(e)}`); } };
+  useEffect(() => { const off = listen('export-log-request', () => { void exportLogs(); }); return () => { void off.then(f => f()); }; }, [data, logs, includeSensitive]);
   const rank: Record<string, number> = {trace:0,debug:1,info:2,warn:3,error:4,fatal:5,panic:6};
   const visible = logs.filter(line => { const level = line.match(/\b(TRACE|DEBUG|INFO|WARN|ERROR|FATAL|PANIC)\b/i)?.[1].toLowerCase(); return !level || rank[level] >= rank[data.level]; });
   return <main><header><div><h1>Split Tunnel</h1><p>Choose which apps use your proxy.</p></div><span className={'status '+(status === 'connected' ? 'on' : status.startsWith('failed') ? 'failed' : '')}><i/>{status.startsWith('failed') ? 'Failed' : status}{status === 'connected' && <small className={'live-ping '+pingTone(livePing)}>Live: {pingText(livePing)}</small>}</span></header>
@@ -92,7 +103,7 @@ function App() {
     {error && <div className="error" role="alert">{error}</div>}
     <button className="connect" disabled={status==='connecting'} onClick={toggle}>{status === 'connected' ? 'Disconnect' : status === 'connecting' ? 'Connecting…' : 'Connect'}</button>
     <details><summary>Settings</summary><div className="settings"><label>Tunnel mode<select value={data.mode} onChange={e=>update({mode:e.target.value as TunnelMode})}><option value="inclusive">Selected apps only</option><option value="exclusive">All except selected</option><option value="whole">Whole system</option></select></label><label>Log level<select value={data.level} onChange={e=>update({level:e.target.value as Data['level']})}>{['trace','debug','info','warn','error','fatal','panic'].map(x=><option key={x}>{x}</option>)}</select></label><details className="advanced"><summary>Advanced</summary><label>Engine override (optional)<div className="row"><input readOnly value={data.binary} placeholder="Automatic"/><button onClick={browseEngine}>Browse</button>{data.binary && <button onClick={() => update({binary:''})}>Clear</button>}</div></label></details></div></details>
-    <details><summary>Logs <span>{visible.length}</span></summary><pre>{visible.join('\n') || 'No logs yet.'}</pre></details>
+    <details><summary>Logs <span>{visible.length}</span></summary><div className="log-actions"><label><input type="checkbox" checked={includeSensitive} onChange={e=>setIncludeSensitive(e.target.checked)}/> Include sensitive details</label><span>UUIDs, passwords, server addresses, URLs, and home paths are redacted by default.</span><div className="row"><button onClick={() => void exportLogs()}>Export log</button><button onClick={() => void copyLogs()}>Copy log</button><button className="text" onClick={() => setLogs([])}>Clear log</button></div></div><pre>{visible.join('\n') || 'No logs yet.'}</pre></details>
     {installed && <InstalledAppsPicker apps={installed} selected={data.apps} onClose={() => setInstalled(null)} onSelect={addApp}/>}
     {showRunning && <RunningAppsPicker apps={running} onClose={() => setShowRunning(false)} onSelect={app => { addApp(app); setShowRunning(false); }}/>}
   </main>;
