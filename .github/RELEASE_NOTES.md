@@ -7,12 +7,25 @@
 - Whole-app, executable-path, and search-term rules with live process counts.
 - Linux polkit supervision and an experimental Windows implementation.
 
+## Downloads
+
+Choose the format for your system. Windows builds are experimental.
+
+| OS and format | Download | Which should I pick? |
+| --- | --- | --- |
+| Linux x64, Debian package | [split-tunnel-v2ray_0.1.0_linux_amd64.deb](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.deb) | Install on Debian or Ubuntu. |
+| Linux x64, AppImage | [split-tunnel-v2ray_0.1.0_linux_amd64.AppImage](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.AppImage) | Run without installing; make the file executable first. |
+| Windows x64, installer | [split-tunnel-v2ray_0.1.0_windows_x64-setup.exe](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-setup.exe) | Use the installer for normal setup. |
+| Windows x64, portable | [split-tunnel-v2ray_0.1.0_windows_x64-portable.zip](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-portable.zip) | Extract and run without installation; administrator access and WebView2 are still required. |
+
+Verify downloads using [SHA256SUMS.txt](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/SHA256SUMS.txt).
+
 ## Install
 
 Download the matching installer and `SHA256SUMS.txt` from this release, then verify the checksum before installing.
 
 - **Linux x64:** install the `.deb` with `sudo apt install ./<package>.deb`, or make the `.AppImage` executable (`chmod +x <file>.AppImage`) and run it. A polkit agent and `pkexec` are required.
-- **Windows x64:** run the NSIS `.exe` installer and accept the UAC prompt when starting the app. WebView2 is required.
+- **Windows x64:** run the NSIS `.exe` installer, or extract the portable ZIP and run `split-tunnel-backend.exe` alongside `sing-box.exe`. Both request administrator access and require WebView2.
 
 ### Verify downloads
 

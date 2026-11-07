@@ -20,9 +20,18 @@ A desktop app for process-based split tunneling with Tauri, React, and sing-box.
 
 The app generates a configuration and orchestrates an unmodified sing-box 1.14.4 binary. sing-box creates a TUN interface and applies process matching rules to route traffic through a supplied proxy or directly. DNS attribution and process matching have limitations described below. The [sing-box source for v1.14.4](https://github.com/SagerNet/sing-box/tree/v1.14.4) and its [source archive](https://github.com/SagerNet/sing-box/archive/refs/tags/v1.14.4.tar.gz) are available upstream. See [third-party notices](THIRD_PARTY_NOTICES.md) for licensing.
 
-## Install
+## Downloads
 
-Download the appropriate installer from [GitHub Releases](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases) when available. No release has been published yet. Windows builds are experimental.
+These links will work when the v0.1.0 draft is published. Windows builds are experimental.
+
+| OS and format | Download | Which should I pick? |
+| --- | --- | --- |
+| Linux x64, Debian package | [split-tunnel-v2ray_0.1.0_linux_amd64.deb](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.deb) | Install on Debian or Ubuntu. |
+| Linux x64, AppImage | [split-tunnel-v2ray_0.1.0_linux_amd64.AppImage](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_linux_amd64.AppImage) | Run without installing; make the file executable first. |
+| Windows x64, installer | [split-tunnel-v2ray_0.1.0_windows_x64-setup.exe](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-setup.exe) | Use the installer for normal setup. |
+| Windows x64, portable | [split-tunnel-v2ray_0.1.0_windows_x64-portable.zip](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/split-tunnel-v2ray_0.1.0_windows_x64-portable.zip) | Extract and run without installation; administrator access and WebView2 are still required. |
+
+Verify downloads using [SHA256SUMS.txt](https://github.com/MohamadrezaKazemian/split-tunnel-v2ray/releases/download/v0.1.0/SHA256SUMS.txt).
 
 ## Usage
 
@@ -87,7 +96,7 @@ dpkg-deb -c "src-tauri/target/release/bundle/deb/Split Tunnel_0.1.0_amd64.deb" |
 
 Both executables should be listed next to each other. To compare the packaged sidecar with the setup download, pipe `dpkg-deb --fsys-tarfile <package>` into `tar -xOf - usr/bin/sing-box | sha256sum` and compare it with `sha256sum src-tauri/binaries/sing-box-<target-triple>`.
 
-An AppImage can be requested with `pnpm tauri build --bundles appimage`, but that package format has not been verified here. Desktop polkit authorization and networking still need the platform checks described below.
+An AppImage can be requested with `pnpm tauri build --bundles appimage`; the v0.1.0 release AppImage was smoke-tested under Xvfb. Desktop polkit authorization and networking still need the platform checks described below.
 
 ### Windows 10/11 x64
 
@@ -95,7 +104,7 @@ On a Windows x64 machine, install the [Windows Tauri prerequisites](https://v2.t
 
 The app requests administrator access through its manifest. If UAC is declined, Windows does not start the app, so it cannot display its own cancellation message. For development, an elevated terminal may be needed because `cargo run` cannot display an elevation prompt for its child.
 
-The Windows workflow in `.github/workflows/windows.yml` is configured to run tests, build an NSIS installer and inspect it for the engine. **The workflow has not been run or verified here.** Windows privilege handling, shortcut scanning, process matching, adapter cleanup, DNS restoration and the installer have not been tested on Windows. Follow [the Windows test plan](docs/WINDOWS_TEST_PLAN.md) before relying on them.
+The Windows workflow in `.github/workflows/windows.yml` is configured to run tests, build an NSIS installer and inspect it for the engine. The workflow has built and inspected an installer on GitHub Actions. Windows privilege handling, shortcut scanning, process matching, adapter cleanup, DNS restoration and the installer have not been tested on Windows. Follow [the Windows test plan](docs/WINDOWS_TEST_PLAN.md) before relying on them.
 
 Paste a VLESS, VMess, Trojan or Shadowsocks link, or an HTTP(S) subscription URL, then select applications from the installed-app list, a running process, or an executable/desktop file and connect. The installed list is scanned in the background and cached for the session. Running process counts refresh every five seconds and exclude the app and its resolved engine. Changes to rules take effect after reconnecting. Whole-app rules use the installation directory, while term rules match executable paths and the names observed when connecting. Review broad matches before using them. The subscription is fetched by the backend, follows up to five redirects, has a 20-second timeout and is limited to 2 MiB. The whole import fails if any subscription line is unsupported. Desktop launcher entries are resolved to an executable, including common `env` prefixes. Flatpak and Snap launchers are available as whole-app rules only when an app-specific installation directory can be identified; sandbox mount namespaces can still expose different paths. Shared launchers without an identifiable root are unavailable. Some launchers and sandboxed apps cannot be mapped reliably. Whole-app rules match every executable under their install root, including helpers and unrelated executables placed there. Versioned app folders are folded into the stable root. Running-app groups and counts include only processes whose executable paths are accessible. App icons are not implemented.
 
