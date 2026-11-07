@@ -3,6 +3,8 @@ dist/
 **/target/
 src-tauri/binaries/
 bin/
+!src-tauri/src/bin/
+!src-tauri/src/bin/**
 *.log
 logs/
 .env

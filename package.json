@@ -7,6 +7,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "check:config": "tsx scripts/check-config.ts",
+    "ping:config": "tsx scripts/ping-config.ts",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "tauri": "node scripts/tauri.mjs",
