@@ -87,6 +87,8 @@ For later development sessions, `pnpm tauri dev` is enough while the dependencie
 
 At runtime the app searches next to its executable for the Tauri sidecar, then `./bin/sing-box` in the project directory during development (or the working directory in a packaged app), then `sing-box` on PATH. If none is found, Connect displays `Engine missing, run pnpm setup:engine`. Settings → Advanced offers an optional override. A saved override is used only while it points to an executable file; otherwise discovery continues automatically. A polkit authentication agent and an authorization policy permitting `pkexec` are required on Linux. The GUI and its saved data stay under the normal user account; on Connect, `pkexec` elevates a supervisor that launches the selected executable as root. Only use a trusted engine: it executes with root privileges. On Windows the whole app requests administrator privileges through UAC; Windows behavior has not been validated on a real machine.
 
+For an AppImage, the privileged supervisor runs from a temporary extraction of the same AppImage, because root normally cannot access the GUI user's FUSE mount. The bundled engine is taken from that extraction; an engine override outside the AppImage is still honored. The AppImage runtime normally cleans up the extraction after the supervisor exits. The installed-app picker uses an exact executable rule when an app is in a shared directory; helpers outside that executable need their own rule.
+
 ## Build the desktop app
 
 Build on the OS and architecture you want to run. From a fresh checkout, install dependencies and download the sidecar first:

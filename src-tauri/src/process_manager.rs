@@ -9,6 +9,37 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(target_os = "linux")]
+fn appimage_supervisor(
+    image: Option<&std::ffi::OsStr>,
+    appdir: Option<&std::ffi::OsStr>,
+    supervisor: &Path,
+    binary: &Path,
+) -> io::Result<Option<(PathBuf, bool)>> {
+    let Some(image) = image else { return Ok(None) };
+    let appdir = appdir.ok_or_else(|| io::Error::other("AppImage directory is missing"))?;
+    let appdir = fs::canonicalize(appdir)?;
+    let supervisor = fs::canonicalize(supervisor)?;
+    if !supervisor.starts_with(&appdir) {
+        return Err(io::Error::other(
+            "AppImage directory does not contain the running app",
+        ));
+    }
+    let image = fs::canonicalize(image)?;
+    if !image.is_file() {
+        return Err(io::Error::other("AppImage file is unavailable"));
+    }
+    let bundled = supervisor
+        .parent()
+        .is_some_and(|dir| binary == dir.join("sing-box"));
+    if binary.starts_with(&appdir) && !bundled {
+        return Err(io::Error::other(
+            "Engine override inside the AppImage is not supported",
+        ));
+    }
+    Ok(Some((image, bundled)))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Stream {
     Stdout,
@@ -114,7 +145,43 @@ impl ProcessManager {
         self.elevated = elevated;
         let mut command = if elevated {
             let mut c = Command::new("pkexec");
-            c.arg(supervisor.as_ref().expect("supervisor path"))
+            let supervisor = supervisor.as_ref().expect("supervisor path");
+            #[cfg(target_os = "linux")]
+            {
+                let appimage = appimage_supervisor(
+                    std::env::var_os("APPIMAGE").as_deref(),
+                    std::env::var_os("APPDIR").as_deref(),
+                    supervisor,
+                    &binary,
+                );
+                match appimage {
+                    Ok(Some((image, bundled))) => {
+                        // The user's FUSE mount is inaccessible to root. Re-extract
+                        // the same AppImage under pkexec, then run the same supervisor.
+                        c.arg(image)
+                            .arg("--appimage-extract-and-run")
+                            .arg("--privileged-appimage-supervisor")
+                            .arg(if bundled {
+                                std::ffi::OsStr::new("--bundled-engine")
+                            } else {
+                                binary.as_os_str()
+                            })
+                            .arg(&path);
+                    }
+                    Ok(None) => {
+                        c.arg(supervisor)
+                            .arg("--privileged-supervisor")
+                            .arg(&binary)
+                            .arg(&path);
+                    }
+                    Err(error) => {
+                        let _ = fs::remove_file(&path);
+                        return Err(error);
+                    }
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            c.arg(supervisor)
                 .arg("--privileged-supervisor")
                 .arg(&binary)
                 .arg(&path);
@@ -586,6 +653,52 @@ impl Drop for WindowsJob {
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn appimage_supervisor_preserves_engine_choice() {
+        let root = std::env::temp_dir().join(format!(
+            "split-appimage-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let bin_dir = root.join("mounted/usr/bin");
+        fs::create_dir_all(&bin_dir).unwrap();
+        let image = root.join("app.AppImage");
+        let gui = bin_dir.join("split-tunnel-backend");
+        let engine = bin_dir.join("sing-box");
+        let custom = root.join("custom-engine");
+        for file in [&image, &gui, &engine, &custom] {
+            fs::write(file, b"fixture").unwrap();
+        }
+        let dir = root.join("mounted");
+        let launch = |binary: &Path| {
+            appimage_supervisor(Some(image.as_os_str()), Some(dir.as_os_str()), &gui, binary)
+                .unwrap()
+                .unwrap()
+        };
+        assert_eq!(launch(&engine), (image.clone(), true));
+        assert_eq!(launch(&custom), (image.clone(), false));
+        assert!(appimage_supervisor(
+            Some(image.as_os_str()),
+            Some(dir.as_os_str()),
+            &custom,
+            &engine
+        )
+        .is_err());
+        assert!(appimage_supervisor(None, None, &gui, &engine)
+            .unwrap()
+            .is_none());
+        for file in [&image, &gui, &engine, &custom] {
+            fs::remove_file(file).unwrap();
+        }
+        fs::remove_dir(&bin_dir).unwrap();
+        fs::remove_dir(root.join("mounted/usr")).unwrap();
+        fs::remove_dir(dir).unwrap();
+        fs::remove_dir(root).unwrap();
+    }
     fn fixture(body: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
             "split-fixture-{}-{}",

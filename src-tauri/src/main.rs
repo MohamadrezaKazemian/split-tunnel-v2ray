@@ -451,13 +451,30 @@ fn main() {
     #[cfg(target_os = "linux")]
     {
         let args: Vec<_> = std::env::args_os().collect();
-        if args.get(1).is_some_and(|x| x == "--privileged-supervisor") {
+        if args.get(1).is_some_and(|x| {
+            x == "--privileged-supervisor" || x == "--privileged-appimage-supervisor"
+        }) {
             if args.len() != 4 {
                 eprintln!("Invalid supervisor arguments");
                 std::process::exit(2);
             }
+            let engine =
+                if args[1] == "--privileged-appimage-supervisor" && args[2] == "--bundled-engine" {
+                    match std::env::current_exe()
+                        .ok()
+                        .and_then(|p| p.parent().map(|dir| dir.join("sing-box")))
+                    {
+                        Some(path) => path,
+                        None => {
+                            eprintln!("Could not locate bundled sing-box");
+                            std::process::exit(2);
+                        }
+                    }
+                } else {
+                    PathBuf::from(&args[2])
+                };
             match split_tunnel_backend::privileged_helper::run(
-                std::path::Path::new(&args[2]),
+                &engine,
                 std::path::Path::new(&args[3]),
             ) {
                 Ok(code) => std::process::exit(code),
