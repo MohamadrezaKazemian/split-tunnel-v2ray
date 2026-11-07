@@ -19,7 +19,7 @@ const env: NodeJS.ProcessEnv = { ...process.env, SPLIT_TUNNEL_PING_OUTBOUND: JSO
 delete env.SPLIT_TUNNEL_PING_CONFIG;
 const result = spawnSync(
   'cargo',
-  ['run', '--quiet', '--manifest-path', 'src-tauri/Cargo.toml', '--bin', 'ping-config'],
+  ['run', '--quiet', '--manifest-path', 'src-tauri/Cargo.toml', '--bin', 'ping_config'],
   { env, stdio: 'inherit' },
 );
 if (result.error) {

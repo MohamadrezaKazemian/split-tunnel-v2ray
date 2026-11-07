@@ -177,7 +177,10 @@ fn temporary_config(targets: &[PingTarget], controller_port: u16, secret: &str) 
         .chain(std::iter::once(json!({"type":"direct", "tag":"direct"})))
         .collect::<Vec<_>>();
     json!({
-        "log": {"level":"error", "timestamp": false},
+        // ProcessManager detects the engine's startup message at info level.
+        // This process is private and its logs are never surfaced, so retaining
+        // info here does not override the user's UI log preference.
+        "log": {"level":"info", "timestamp": false},
         "inbounds": [],
         "outbounds": outbounds,
         "route": {"final":"direct"},
@@ -309,6 +312,7 @@ mod tests {
         ];
         let config = temporary_config(&targets, 12345, "temporary-secret");
         assert_eq!(config["inbounds"], json!([]));
+        assert_eq!(config["log"]["level"], "info");
         assert_eq!(config["outbounds"][0]["tag"], "ping-0");
         assert_eq!(config["outbounds"][1]["tag"], "ping-1");
         assert_eq!(
