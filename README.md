@@ -5,7 +5,15 @@
 
 A desktop app for process-based split tunneling with Tauri, React, and sing-box.
 
-> Screenshot placeholder: an application screenshot will be added later.
+Classic theme:
+
+![Classic theme showing the connection screen](docs/screenshots/classic.png)
+
+Modern theme:
+
+![Modern theme showing settings](docs/screenshots/modern.png)
+
+[Classic theme at a narrow window size](docs/screenshots/classic-narrow.png)
 
 **Experimental:** Windows has not been tested on a real machine. Routing and DNS isolation are not fully verified on either platform.
 
